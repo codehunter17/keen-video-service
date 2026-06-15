@@ -1,0 +1,12 @@
+# Keep the Cloud Build upload lean — don't ship local junk or secrets.
+.git/
+.venv/
+venv/
+__pycache__/
+*.pyc
+.env
+output/
+work/
+*.mp4
+*.mp3
+!assets/bgm/*.mp3
