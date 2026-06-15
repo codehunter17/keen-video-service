@@ -1,0 +1,21 @@
+# Keen Video Service — Python 3.10+
+# NOTE: FFmpeg must be installed at the OS level (not pip): `ffmpeg -version`.
+
+# --- API ---
+fastapi==0.115.6
+uvicorn[standard]==0.34.0
+pydantic==2.10.4
+pydantic-settings==2.7.1
+python-dotenv==1.0.1
+
+# --- HTTP (Pexels, LLM, ElevenLabs) ---
+httpx==0.28.1
+
+# --- Voiceover ---
+edge-tts==7.0.0          # free neural TTS + word-boundary timings
+
+# --- Rendering ---
+moviepy==1.0.3           # stable 1.x API (from moviepy.editor import ...)
+imageio-ffmpeg==0.5.1    # bundles an ffmpeg binary as a fallback
+Pillow==11.1.0           # PIL-rendered captions (no ImageMagick needed)
+numpy==2.2.1
