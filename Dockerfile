@@ -1,21 +1,40 @@
-# Keen Video Service — Python 3.12 (best wheel compatibility for moviepy 1.0.3).
+# Keen Video Service — Hugging Face Space (Docker SDK).
+#
+# HF runs the container as UID 1000, so we create a matching "user" and keep all
+# app files + writable dirs under its home (HF "Permissions" guide). FFmpeg + the
+# caption font are installed as root *before* switching user (apt needs root).
 FROM python:3.12-slim
 
-# FFmpeg (rendering) + a bold TrueType font (captions fall back to DejaVu).
+# --- System deps (root): FFmpeg for rendering + a bold TrueType caption font ---
 RUN apt-get update \
     && apt-get install -y --no-install-recommends ffmpeg fonts-dejavu-core \
     && rm -rf /var/lib/apt/lists/*
 
-WORKDIR /srv
+# --- Non-root user expected by HF Spaces (UID 1000) ---
+RUN useradd -m -u 1000 user
+USER user
+ENV HOME=/home/user \
+    PATH=/home/user/.local/bin:$PATH
+WORKDIR $HOME/app
 
-COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+# --- Python deps (installed as the runtime user → wheels land in ~/.local) ---
+COPY --chown=user requirements.txt .
+RUN pip install --no-cache-dir --upgrade pip \
+    && pip install --no-cache-dir -r requirements.txt
 
-COPY app ./app
-COPY assets ./assets
+# --- App code + assets, owned by the runtime user ---
+COPY --chown=user app ./app
+COPY --chown=user assets ./assets
 
+# Writable dirs for renders (owned by user so runtime writes succeed under UID 1000).
+RUN mkdir -p output work
+
+# Caption font baked into the image. Secrets/vars (PEXELS_API_KEY, SERVICE_API_KEY,
+# PUBLIC_BASE_URL, …) are injected by HF at runtime — never bake them into the image.
 ENV CAPTION_FONT=/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf
+
+# HF routes the Space's public URL to this port (must match app_port in README.md).
 EXPOSE 8000
 
-# 1 worker: rendering is CPU-bound; scale by running more containers / a queue.
+# 1 worker: rendering is CPU-bound; scale via more instances / a queue later.
 CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "1"]

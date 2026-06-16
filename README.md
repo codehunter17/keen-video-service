@@ -1,3 +1,17 @@
+---
+title: Keen Video Service
+emoji: 🎬
+colorFrom: pink
+colorTo: indigo
+sdk: docker
+app_port: 8000
+pinned: false
+short_description: Headless reel/video renderer for Keen (FFmpeg + captions).
+---
+
+<!-- The YAML block above configures this as a Hugging Face Docker Space. -->
+<!-- Deploying it? See DEPLOY_HF_SPACE.md for the exact steps. -->
+
 # Keen Video Service
 
 A headless, asynchronous video-generation microservice. Keen (the Node backend)
