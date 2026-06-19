@@ -56,3 +56,44 @@ def job_status(job_id: str) -> JobInfo:
     if not job:
         raise HTTPException(status_code=404, detail="job not found")
     return job
+
+
+@router.get("/diag")
+def diag(x_keen_key: str | None = Header(default=None)) -> dict:
+    """Key-gated ops probe: surfaces which providers are configured and runs a
+    live Pexels search + download from *inside* the Space, so footage failures
+    (which the render path swallows into a solid-colour fallback) are visible."""
+    _check_auth(x_keen_key)
+    import os
+
+    from .media_fetcher import _download, _pick_best_file, _search
+
+    s = get_settings()
+    out: dict = {
+        "pexels_configured": bool(s.pexels_api_key),
+        "elevenlabs_configured": bool(s.elevenlabs_api_key),
+        "groq_configured": bool(s.groq_api_key),
+        "gemini_configured": bool(s.gemini_api_key),
+        "tts_chain": s.tts_chain_list,
+        "edge_voice": s.edge_default_voice,
+        "public_url": s.public_url,
+        "space_host": os.environ.get("SPACE_HOST"),
+    }
+    try:
+        vids = _search("lifestyle cinematic 4k", per_page=3)
+        out["pexels_search_count"] = len(vids)
+        if vids:
+            link = _pick_best_file(vids[0], *s.video_size)
+            out["pexels_first_link"] = (link or "")[:100]
+            try:
+                os.makedirs(s.work_dir, exist_ok=True)
+                tmp = os.path.join(s.work_dir, "diag_clip.mp4")
+                _download(link, tmp, s.request_timeout)
+                out["download_ok"] = True
+                out["download_size"] = os.path.getsize(tmp)
+            except Exception as e:  # noqa: BLE001
+                out["download_ok"] = False
+                out["download_error"] = f"{type(e).__name__}: {e}"
+    except Exception as e:  # noqa: BLE001
+        out["pexels_search_error"] = f"{type(e).__name__}: {e}"
+    return out
