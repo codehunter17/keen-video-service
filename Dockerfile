@@ -5,9 +5,11 @@
 # caption font are installed as root *before* switching user (apt needs root).
 FROM python:3.12-slim
 
-# --- System deps (root): FFmpeg for rendering + a bold TrueType caption font ---
+# --- System deps (root): FFmpeg for rendering + caption fonts ---
+# fonts-noto-core ships Noto Sans Devanagari (Bold) so Hindi/Hinglish captions
+# render instead of tofu boxes; fonts-dejavu-core stays as a Latin fallback.
 RUN apt-get update \
-    && apt-get install -y --no-install-recommends ffmpeg fonts-dejavu-core \
+    && apt-get install -y --no-install-recommends ffmpeg fonts-dejavu-core fonts-noto-core \
     && rm -rf /var/lib/apt/lists/*
 
 # --- Non-root user expected by HF Spaces (UID 1000) ---
@@ -29,9 +31,10 @@ COPY --chown=user assets ./assets
 # Writable dirs for renders (owned by user so runtime writes succeed under UID 1000).
 RUN mkdir -p output work
 
-# Caption font baked into the image. Secrets/vars (PEXELS_API_KEY, SERVICE_API_KEY,
-# PUBLIC_BASE_URL, …) are injected by HF at runtime — never bake them into the image.
-ENV CAPTION_FONT=/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf
+# Caption font baked into the image — Devanagari-capable for Hindi/Hinglish.
+# Secrets/vars (PEXELS_API_KEY, SERVICE_API_KEY, PUBLIC_BASE_URL, ELEVENLABS_API_KEY,
+# TTS_CHAIN, …) are injected by HF at runtime — never bake them into the image.
+ENV CAPTION_FONT=/usr/share/fonts/truetype/noto/NotoSansDevanagari-Bold.ttf
 
 # HF routes the Space's public URL to this port (must match app_port in README.md).
 EXPOSE 8000

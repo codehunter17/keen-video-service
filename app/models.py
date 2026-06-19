@@ -11,7 +11,7 @@ class VideoRequest(BaseModel):
     """Payload Keen (the Node backend) posts to /api/v1/generate-video."""
 
     topic_or_script: str = Field(min_length=3, max_length=8000)
-    voice_id: str = "en-US-AriaNeural"
+    voice_id: str = "hi-IN-SwaraNeural"  # warm Hindi female; empty => server default
     bgm_style: str = "none"
 
 

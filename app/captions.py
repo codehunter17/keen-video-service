@@ -25,8 +25,19 @@ _BASE_COLOR = (255, 255, 255, 255)
 _ACTIVE_COLOR = (255, 214, 10, 255)  # warm yellow highlight
 _STROKE_COLOR = (0, 0, 0, 230)
 
+# Devanagari-capable fonts MUST come before Latin-only ones: Hindi/Hinglish
+# captions render as tofu (☐☐☐) in DejaVu/Arial. Noto Sans Devanagari also
+# covers Latin, so it handles mixed Hinglish lines too. (Pillow's wheels bundle
+# libraqm, so Devanagari conjuncts/matras shape correctly.)
 _FONT_CANDIDATES = [
     os.environ.get("CAPTION_FONT", ""),
+    # — Devanagari (Hindi/Hinglish) —
+    "/usr/share/fonts/truetype/noto/NotoSansDevanagari-Bold.ttf",
+    "/usr/share/fonts/truetype/noto/NotoSansDevanagari-Regular.ttf",
+    "/usr/share/fonts/truetype/lohit-devanagari/Lohit-Devanagari.ttf",
+    "C:/Windows/Fonts/NirmalaB.ttf",   # Nirmala UI Bold (Windows, Devanagari)
+    "C:/Windows/Fonts/Nirmala.ttf",
+    # — Latin-only fallbacks (English captions) —
     "C:/Windows/Fonts/arialbd.ttf",
     "C:/Windows/Fonts/Arialbd.ttf",
     "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",

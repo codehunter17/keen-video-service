@@ -21,10 +21,16 @@ class Settings(BaseSettings):
     gemini_api_key: str = ""
     scene_llm_model: str = "llama-3.3-70b-versatile"
 
-    # --- Voiceover ---
-    tts_provider: str = "edge"  # "edge" | "elevenlabs"
-    edge_default_voice: str = "en-US-AriaNeural"
+    # --- Voiceover (fallback chain) ---
+    # Providers are tried left→right until one succeeds, so a transient failure
+    # (e.g. edge-tts 403 from a datacenter IP) auto-falls-back instead of failing
+    # the whole render. Providers: "edge" (free Microsoft neural) | "elevenlabs".
+    tts_chain: str = ""              # e.g. "edge,elevenlabs"; empty => derived below
+    tts_provider: str = "edge"       # DEPRECATED; only used when tts_chain is empty
+    edge_default_voice: str = "hi-IN-SwaraNeural"      # warm Hindi female (free)
     elevenlabs_api_key: str = ""
+    elevenlabs_voice_id: str = "o6qTxWUeRyzRYZyUNDVJ"  # multilingual female (Hindi-capable)
+    elevenlabs_model: str = "eleven_flash_v2_5"        # supports Hindi
 
     # --- Video ---
     video_width: int = 1080
@@ -51,6 +57,19 @@ class Settings(BaseSettings):
     @property
     def video_size(self) -> tuple[int, int]:
         return (self.video_width, self.video_height)
+
+    @property
+    def tts_chain_list(self) -> list[str]:
+        """Ordered list of TTS providers to try. Falls back from TTS_PROVIDER."""
+        raw = self.tts_chain.strip()
+        if raw:
+            return [p.strip().lower() for p in raw.split(",") if p.strip()]
+        # Back-compat: honor a lone TTS_PROVIDER, else free-first with paid fallback.
+        return (
+            ["elevenlabs", "edge"]
+            if self.tts_provider.strip().lower() == "elevenlabs"
+            else ["edge", "elevenlabs"]
+        )
 
 
 @lru_cache

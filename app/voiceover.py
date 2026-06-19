@@ -1,8 +1,13 @@
-"""Voiceover generation with word-level timestamps.
+"""Voiceover generation with word-level timestamps (Hindi-first, with fallback).
 
-Edge-TTS (free) emits WordBoundary events as it streams, giving us exact
-per-word start/end times — the basis for both dynamic clip cuts and word-by-word
-captions. ElevenLabs is supported via its with-timestamps endpoint when chosen.
+Providers are tried in the order given by TTS_CHAIN until one succeeds:
+  • edge       — free Microsoft neural TTS (default voice hi-IN-SwaraNeural). Emits
+                 WordBoundary events → exact per-word start/end times.
+  • elevenlabs — premium paid fallback via the with-timestamps endpoint (per-char
+                 alignment folded into words). Used when edge fails (e.g. 403).
+
+Both yield the per-word timings that drive dynamic clip cuts and word-by-word
+captions, so the rest of the pipeline is provider-agnostic.
 """
 
 from __future__ import annotations
@@ -44,15 +49,24 @@ async def _edge_tts(text: str, voice: str, out_path: str) -> list[WordTiming]:
 
 
 # ── ElevenLabs ──────────────────────────────────────────────────────────────-
-def _elevenlabs_tts(text: str, voice_id: str, out_path: str) -> list[WordTiming]:
+def _elevenlabs_tts(text: str, out_path: str) -> list[WordTiming]:
     s = get_settings()
     if not s.elevenlabs_api_key:
-        raise RuntimeError("TTS_PROVIDER=elevenlabs but ELEVENLABS_API_KEY is unset")
+        raise RuntimeError("ELEVENLABS_API_KEY is unset")
 
     resp = httpx.post(
-        f"https://api.elevenlabs.io/v1/text-to-speech/{voice_id}/with-timestamps",
+        f"https://api.elevenlabs.io/v1/text-to-speech/{s.elevenlabs_voice_id}/with-timestamps",
         headers={"xi-api-key": s.elevenlabs_api_key, "Content-Type": "application/json"},
-        json={"text": text, "model_id": "eleven_flash_v2_5"},
+        json={
+            "text": text,
+            "model_id": s.elevenlabs_model,
+            "voice_settings": {
+                "stability": 0.4,
+                "similarity_boost": 0.8,
+                "style": 0.3,
+                "use_speaker_boost": True,
+            },
+        },
         timeout=max(s.request_timeout, 60.0),
     )
     resp.raise_for_status()
@@ -91,15 +105,38 @@ def _chars_to_words(
 def generate_voiceover(
     text: str, voice_id: str, out_path: str
 ) -> tuple[str, list[WordTiming]]:
-    """Render the voiceover to `out_path` (mp3) and return (path, word timings)."""
-    s = get_settings()
-    if s.tts_provider == "elevenlabs":
-        timings = _elevenlabs_tts(text, voice_id, out_path)
-    else:
-        voice = voice_id or s.edge_default_voice
-        timings = asyncio.run(_edge_tts(text, voice, out_path))
+    """Render the voiceover to `out_path` (mp3) and return (path, word timings).
 
-    if not timings:
-        log.warning("no word timings returned; captions/pacing will be approximate")
-    log.info("voiceover: %d words, %.1fs", len(timings), timings[-1].end if timings else 0)
-    return out_path, timings
+    Providers in TTS_CHAIN are tried in order until one succeeds, so a transient
+    failure (e.g. edge-tts returning 403 on a datacenter IP) transparently falls
+    back to the next provider instead of failing the whole render.
+    """
+    s = get_settings()
+    errors: list[str] = []
+    for provider in s.tts_chain_list:
+        try:
+            if provider == "edge":
+                voice = voice_id or s.edge_default_voice
+                timings = asyncio.run(_edge_tts(text, voice, out_path))
+            elif provider == "elevenlabs":
+                timings = _elevenlabs_tts(text, out_path)
+            else:
+                log.warning("unknown TTS provider %r in TTS_CHAIN; skipping", provider)
+                continue
+        except Exception as exc:  # noqa: BLE001 — fall through to the next provider
+            log.warning("TTS provider %r failed, falling through: %s", provider, exc)
+            errors.append(f"{provider}: {exc}")
+            continue
+
+        if not timings:
+            log.warning("%s returned no word timings; captions/pacing approximate", provider)
+        log.info(
+            "voiceover via %s: %d words, %.1fs",
+            provider, len(timings), timings[-1].end if timings else 0.0,
+        )
+        return out_path, timings
+
+    raise RuntimeError(
+        "all TTS providers failed -> " + " | ".join(errors)
+        if errors else "TTS_CHAIN is empty — no voiceover provider configured"
+    )
