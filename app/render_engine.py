@@ -60,6 +60,27 @@ def _scene_spans(scenes: list[Scene], timings: list[WordTiming], total: float) -
     return spans
 
 
+def _estimate_word_timings(text: str, total: float) -> list[WordTiming]:
+    """Evenly distribute `total` seconds across words (weighted by length).
+
+    Used when the TTS provider returns no per-word alignment — notably ElevenLabs
+    for Devanagari/Hindi — so captions still render (showing the original script)
+    instead of being skipped entirely.
+    """
+    words = text.split()
+    if not words or total <= 0:
+        return []
+    weights = [max(1, len(w)) for w in words]
+    tot = sum(weights)
+    timings: list[WordTiming] = []
+    t = 0.0
+    for w, wt in zip(words, weights):
+        dur = total * wt / tot
+        timings.append(WordTiming(w, t, t + dur))
+        t += dur
+    return timings
+
+
 def _fit_to_frame(clip: VideoFileClip, w: int, h: int):
     """Scale a clip to *cover* the target frame, then centre-crop to exactly w×h."""
     cw, ch = clip.size
@@ -129,6 +150,11 @@ def run_render_job(job_id: str, req: VideoRequest) -> None:
         audio = AudioFileClip(audio_path)
         open_clips.append(audio)
         total = audio.duration
+        if not timings:
+            # Provider gave no alignment (e.g. ElevenLabs for Hindi) → estimate,
+            # so word-by-word captions still render the original script.
+            timings = _estimate_word_timings(narration, total)
+            log.info("no provider timings; estimated %d over %.1fs", len(timings), total)
         spans = _scene_spans(scenes, timings, total)
 
         # 3. Footage per scene (with fallback inside fetch_clip).
@@ -169,7 +195,7 @@ def run_render_job(job_id: str, req: VideoRequest) -> None:
             logger=None,
         )
 
-        url = f"{s.public_base_url.rstrip('/')}/files/{job_id}.mp4"
+        url = f"{s.public_url}/files/{job_id}.mp4"
         update_job(job_id, state=JobState.DONE, progress=1.0, message="done",
                    output_path=out_path, output_url=url)
         log.info("job %s done → %s", job_id, out_path)

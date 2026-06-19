@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 from functools import lru_cache
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -52,11 +53,22 @@ class Settings(BaseSettings):
     # --- Networking / auth ---
     request_timeout: float = 30.0
     service_api_key: str = ""  # X-Keen-Key shared secret; empty = open (dev)
-    public_base_url: str = "http://localhost:8000"
+    public_base_url: str = ""  # explicit override; empty => auto from SPACE_HOST (HF)
 
     @property
     def video_size(self) -> tuple[int, int]:
         return (self.video_width, self.video_height)
+
+    @property
+    def public_url(self) -> str:
+        """Base URL for serving rendered files. Prefers an explicit setting, else
+        auto-detects the HF Space host (HF sets SPACE_HOST), else localhost."""
+        if self.public_base_url:
+            return self.public_base_url.rstrip("/")
+        host = os.environ.get("SPACE_HOST")  # e.g. keenhunter-keen-video-service.hf.space
+        if host:
+            return f"https://{host.rstrip('/')}"
+        return "http://localhost:8000"
 
     @property
     def tts_chain_list(self) -> list[str]:
