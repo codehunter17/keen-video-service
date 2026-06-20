@@ -124,7 +124,7 @@ def build_caption_clips(
                 ImageClip(rgb)
                 .with_start(start)
                 .with_duration(duration)
-                .with_mask(ImageClip(mask, ismask=True).with_duration(duration))
+                .with_mask(ImageClip(mask, is_mask=True).with_duration(duration))
                 .with_position((0, 0))
             )
             clips.append(clip)
