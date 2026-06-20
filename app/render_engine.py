@@ -15,17 +15,16 @@ import logging
 import os
 import traceback
 
-from moviepy.audio.fx.audio_loop import audio_loop
-from moviepy.editor import (
+from moviepy import (
     AudioFileClip,
     ColorClip,
     CompositeAudioClip,
     CompositeVideoClip,
     VideoFileClip,
+    afx,
     concatenate_videoclips,
+    vfx,
 )
-from moviepy.video.fx.crop import crop
-from moviepy.video.fx.resize import resize
 
 from .captions import build_caption_clips
 from .config import get_settings
@@ -85,24 +84,23 @@ def _fit_to_frame(clip: VideoFileClip, w: int, h: int):
     """Scale a clip to *cover* the target frame, then centre-crop to exactly w×h."""
     cw, ch = clip.size
     scale = max(w / cw, h / ch)
-    clip = resize(clip, newsize=(round(cw * scale), round(ch * scale)))
-    return crop(clip, x_center=clip.w / 2, y_center=clip.h / 2, width=w, height=h)
+    clip = clip.with_effects([vfx.Resize(new_size=(round(cw * scale), round(ch * scale)))])
+    return clip.with_effects([vfx.Crop(x_center=clip.w // 2, y_center=clip.h // 2, width=w, height=h)])
 
 
 def _clip_for_span(path: str | None, duration: float, size: tuple[int, int]):
     w, h = size
     if not path or not os.path.exists(path):
-        return ColorClip(size=size, color=(18, 18, 24)).set_duration(duration)
+        return ColorClip(size=size, color=(18, 18, 24)).with_duration(duration)
     try:
         raw = VideoFileClip(path, audio=False)
         fitted = _fit_to_frame(raw, w, h)
         if fitted.duration >= duration:
-            return fitted.subclip(0, duration)
-        # Footage shorter than the narration for this scene → loop to fill.
-        return fitted.loop(duration=duration)
+            return fitted.subclipped(0, duration)
+        return fitted.with_effects([vfx.Loop(duration=duration)])
     except Exception as e:  # noqa: BLE001
         log.warning("clip load failed for %s (%s); using solid bg", path, e)
-        return ColorClip(size=size, color=(18, 18, 24)).set_duration(duration)
+        return ColorClip(size=size, color=(18, 18, 24)).with_duration(duration)
 
 
 def _mix_bgm(voice: AudioFileClip, bgm_style: str, total: float):
@@ -120,9 +118,12 @@ def _mix_bgm(voice: AudioFileClip, bgm_style: str, total: float):
         return voice, None
     try:
         bgm = AudioFileClip(path)
-        bed = audio_loop(bgm, duration=total) if bgm.duration < total else bgm.subclip(0, total)
-        bed = bed.volumex(s.bgm_volume)
-        return CompositeAudioClip([voice, bed]).set_duration(total), bgm
+        if bgm.duration < total:
+            bed = bgm.with_effects([afx.AudioLoop(duration=total)])
+        else:
+            bed = bgm.subclipped(0, total)
+        bed = bed.with_volume_scaled(s.bgm_volume)
+        return CompositeAudioClip([voice, bed]).with_duration(total), bgm
     except Exception as e:  # noqa: BLE001
         log.warning("BGM mix failed (%s); using voice only", e)
         return voice, None
@@ -170,14 +171,14 @@ def run_render_job(job_id: str, req: VideoRequest) -> None:
 
         # 4. Stitch video, overlay captions, attach audio.
         update_job(job_id, state=JobState.RENDERING, progress=0.7, message="rendering")
-        base = concatenate_videoclips(segments, method="compose").set_duration(total)
+        base = concatenate_videoclips(segments, method="compose").with_duration(total)
         caption_clips = build_caption_clips(timings, s.video_size)
         open_clips.extend(caption_clips)
         final = CompositeVideoClip([base, *caption_clips], size=s.video_size)
         mixed_audio, bgm_raw = _mix_bgm(audio, req.bgm_style, total)
         if bgm_raw is not None:
             open_clips.extend([mixed_audio, bgm_raw])
-        final = final.set_audio(mixed_audio).set_duration(total)
+        final = final.with_audio(mixed_audio).with_duration(total)
         open_clips.append(final)
 
         # 5. Export — compressed, high-quality MP4.
