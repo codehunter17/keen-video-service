@@ -12,7 +12,7 @@ import logging
 import os
 
 import numpy as np
-from moviepy.editor import ImageClip
+from moviepy import ImageClip
 from PIL import Image, ImageDraw, ImageFont
 
 from .voiceover import WordTiming
@@ -122,10 +122,10 @@ def build_caption_clips(
 
             clip = (
                 ImageClip(rgb)
-                .set_start(start)
-                .set_duration(duration)
-                .set_mask(ImageClip(mask, ismask=True).set_duration(duration))
-                .set_position((0, 0))
+                .with_start(start)
+                .with_duration(duration)
+                .with_mask(ImageClip(mask, ismask=True).with_duration(duration))
+                .with_position((0, 0))
             )
             clips.append(clip)
 

@@ -15,7 +15,7 @@ httpx==0.28.1
 edge-tts==7.2.8          # free neural TTS + word-boundary timings (7.0.0 → 403s; 7.2.x fixes the Sec-MS-GEC token)
 
 # --- Rendering ---
-moviepy==1.0.3           # stable 1.x API (from moviepy.editor import ...)
-imageio-ffmpeg==0.5.1    # bundles an ffmpeg binary as a fallback
-Pillow==11.1.0           # PIL-rendered captions (no ImageMagick needed)
-numpy==2.2.1
+moviepy>=2.1,<3          # 2.x API (1.x fails to build on Python 3.11+)
+imageio-ffmpeg>=0.5.1    # bundles an ffmpeg binary as a fallback
+Pillow>=11.1.0           # PIL-rendered captions (no ImageMagick needed)
+numpy>=2.2
