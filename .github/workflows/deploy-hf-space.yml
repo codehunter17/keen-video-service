@@ -1,0 +1,50 @@
+name: Deploy to Hugging Face Space
+
+# Auto-deploys `main` to the HF Docker Space on every push (and on-demand via the
+# Actions tab). This is the production deploy: the Space rebuilds the Dockerfile
+# and serves the app. Vercel cannot run this service (long renders + ffmpeg), so
+# the HF Space is the real home — see DEPLOY_HF_SPACE.md.
+#
+# One-time setup: add a repo secret HF_TOKEN (a Hugging Face *write* token from
+# https://huggingface.co/settings/tokens) under
+# Settings → Secrets and variables → Actions → New repository secret.
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch: {}
+
+# Never run two deploys at once; cancel an in-flight one if a newer commit lands.
+concurrency:
+  group: hf-space-deploy
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check HF_TOKEN is configured
+        env:
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
+        run: |
+          if [ -z "$HF_TOKEN" ]; then
+            echo "::error::HF_TOKEN secret is not set. Add a Hugging Face write token as a repo secret named HF_TOKEN (Settings → Secrets and variables → Actions)."
+            exit 1
+          fi
+
+      - name: Checkout full history
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0   # full history so the push to the Space isn't a shallow-clone error
+
+      - name: Push to Hugging Face Space
+        env:
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
+        run: |
+          # Force-push: a fresh Space ships an auto-generated commit our history
+          # doesn't share, and we treat GitHub `main` as the single source of truth.
+          # Space *secrets* (PEXELS_API_KEY, SERVICE_API_KEY, …) live in the Space
+          # settings, not git, so this never touches them.
+          git push --force \
+            "https://KeenHunter:${HF_TOKEN}@huggingface.co/spaces/KeenHunter/keen-video-service" \
+            HEAD:main
