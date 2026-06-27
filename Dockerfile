@@ -6,10 +6,14 @@
 FROM python:3.12-slim
 
 # --- System deps (root): FFmpeg for rendering + caption fonts ---
-# fonts-noto-core ships Noto Sans Devanagari (Bold) so Hindi/Hinglish captions
-# render instead of tofu boxes; fonts-dejavu-core stays as a Latin fallback.
+# Hindi/Hinglish captions need a Devanagari font or they render as tofu boxes.
+# fonts-noto-core *may* ship Noto Devanagari (filename varies by release), so we
+# also install fonts-lohit-deva — a guaranteed Devanagari font at a stable path.
+# captions.py globs for whichever is actually present. fonts-dejavu-core is the
+# Latin fallback.
 RUN apt-get update \
-    && apt-get install -y --no-install-recommends ffmpeg fonts-dejavu-core fonts-noto-core \
+    && apt-get install -y --no-install-recommends \
+        ffmpeg fonts-dejavu-core fonts-noto-core fonts-lohit-deva \
     && rm -rf /var/lib/apt/lists/*
 
 # --- Non-root user expected by HF Spaces (UID 1000) ---

@@ -8,6 +8,7 @@ dependency. Returns a list of clips the render engine overlays on the video.
 
 from __future__ import annotations
 
+import glob
 import logging
 import os
 
@@ -46,11 +47,38 @@ _FONT_CANDIDATES = [
 ]
 
 
+# Glob patterns to *discover* a Devanagari font regardless of its exact filename.
+# Distro packaging varies: fonts-noto-core may ship a variable font
+# (NotoSansDevanagari[wght].ttf) or per-weight files, so a hardcoded path is
+# fragile — these globs find whatever is actually installed.
+_DEVANAGARI_GLOBS = [
+    "/usr/share/fonts/**/NotoSansDevanagari*.ttf",
+    "/usr/share/fonts/**/*Devanagari*.ttf",
+    "/usr/share/fonts/**/Lohit-Devanagari*.ttf",
+    "/usr/share/fonts/**/Mangal*.ttf",
+]
+
+
+def _discover_devanagari_fonts() -> list[str]:
+    """Find installed Devanagari-capable fonts by globbing the system font dirs."""
+    found: list[str] = []
+    for pat in _DEVANAGARI_GLOBS:
+        found.extend(sorted(glob.glob(pat, recursive=True)))
+    # Bold first (heavier reads better over footage), de-duplicated, order-stable.
+    found.sort(key=lambda p: (0 if "bold" in p.lower() else 1, p))
+    seen: set[str] = set()
+    return [p for p in found if not (p in seen or seen.add(p))]
+
+
 def _load_font(size: int) -> ImageFont.FreeTypeFont | ImageFont.ImageFont:
-    for path in _FONT_CANDIDATES:
+    # Explicit candidates first (honours CAPTION_FONT), then globbed discovery so
+    # captions never silently fall back to a Latin-only font (→ Devanagari tofu).
+    for path in [*_FONT_CANDIDATES, *_discover_devanagari_fonts()]:
         if path and os.path.exists(path):
             try:
-                return ImageFont.truetype(path, size)
+                font = ImageFont.truetype(path, size)
+                log.info("caption font: %s", path)
+                return font
             except Exception:  # noqa: BLE001
                 continue
     log.warning("no TrueType font found; falling back to PIL default (small)")
