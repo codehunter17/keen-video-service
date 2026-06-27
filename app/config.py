@@ -55,6 +55,12 @@ class Settings(BaseSettings):
     service_api_key: str = ""  # X-Keen-Key shared secret; empty = open (dev)
     public_base_url: str = ""  # explicit override; empty => auto from SPACE_HOST (HF)
 
+    # --- Cost guard ---
+    # Hard ceiling on renders accepted per UTC day. Each render costs an ElevenLabs
+    # call (edge is IP-blocked on HF) + CPU, so this caps spend if the endpoint is
+    # abused or a caller loops. 0 = unlimited (dev). Exceeding it returns HTTP 429.
+    max_renders_per_day: int = 0
+
     @property
     def video_size(self) -> tuple[int, int]:
         return (self.video_width, self.video_height)

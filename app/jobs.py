@@ -9,11 +9,47 @@ from __future__ import annotations
 
 import threading
 import uuid
+from datetime import datetime, timezone
 
 from .models import JobInfo, JobState
 
 _lock = threading.Lock()
 _jobs: dict[str, JobInfo] = {}
+
+# --- Daily render counter (cost guard) -----------------------------------------
+# In-memory, bucketed by UTC date. Resets naturally on the first call of a new
+# day (and on process restart, which is fine — it's a spend ceiling, not billing).
+_render_day = ""
+_render_count = 0
+
+
+def _utc_today() -> str:
+    return datetime.now(timezone.utc).strftime("%Y-%m-%d")
+
+
+def reserve_render_slot(limit: int) -> tuple[bool, int]:
+    """Atomically count one render against today's quota.
+
+    `limit <= 0` means unlimited. Returns (allowed, count_today). When allowed is
+    False the count is unchanged and the caller should reject (HTTP 429).
+    """
+    global _render_day, _render_count
+    if limit <= 0:
+        return True, 0
+    today = _utc_today()
+    with _lock:
+        if today != _render_day:
+            _render_day, _render_count = today, 0
+        if _render_count >= limit:
+            return False, _render_count
+        _render_count += 1
+        return True, _render_count
+
+
+def renders_today() -> int:
+    """Current render count for today (0 if the bucket has rolled over)."""
+    with _lock:
+        return _render_count if _render_day == _utc_today() else 0
 
 
 def create_job() -> JobInfo:

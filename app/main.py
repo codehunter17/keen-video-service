@@ -14,6 +14,7 @@ from fastapi.staticfiles import StaticFiles
 
 from .api import router
 from .config import get_settings
+from .jobs import renders_today
 
 logging.basicConfig(
     level=logging.INFO,
@@ -86,4 +87,6 @@ def health() -> dict[str, object]:
         "tts_provider": settings.tts_provider,
         "pexels_configured": bool(settings.pexels_api_key),
         "video_size": list(settings.video_size),
+        "max_renders_per_day": settings.max_renders_per_day,
+        "renders_today": renders_today(),
     }

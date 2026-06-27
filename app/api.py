@@ -16,7 +16,7 @@ import logging
 from fastapi import APIRouter, BackgroundTasks, Header, HTTPException
 
 from .config import get_settings
-from .jobs import create_job, get_job
+from .jobs import create_job, get_job, renders_today, reserve_render_slot
 from .models import CreateJobResponse, JobInfo, VideoRequest
 from .render_engine import run_render_job
 
@@ -39,6 +39,15 @@ def generate_video(
 ) -> CreateJobResponse:
     _check_auth(x_keen_key)
 
+    # Cost guard: cap renders/day (each costs an ElevenLabs call + CPU).
+    s = get_settings()
+    allowed, count = reserve_render_slot(s.max_renders_per_day)
+    if not allowed:
+        raise HTTPException(
+            status_code=429,
+            detail=f"daily render cap reached ({s.max_renders_per_day}/day); try again tomorrow (UTC)",
+        )
+
     job = create_job()
     background.add_task(run_render_job, job.job_id, req)
     log.info("queued job %s (voice=%s, bgm=%s)", job.job_id, req.voice_id, req.bgm_style)
@@ -58,11 +67,43 @@ def job_status(job_id: str) -> JobInfo:
     return job
 
 
+def _probe_tts() -> dict:
+    """Synthesize a tiny Hindi word through each provider in the chain so it's
+    visible which actually work — edge is often IP-blocked on datacenter hosts,
+    in which case every render silently (and at cost) falls through to ElevenLabs.
+    Note: the ElevenLabs probe costs a few credits per call (it's a real synth)."""
+    import asyncio
+    import os
+
+    from .voiceover import _edge_tts, _elevenlabs_tts
+
+    s = get_settings()
+    os.makedirs(s.work_dir, exist_ok=True)
+    results: dict[str, object] = {}
+    for provider in s.tts_chain_list:
+        tmp = os.path.join(s.work_dir, f"diag_tts_{provider}.mp3")
+        try:
+            if provider == "edge":
+                timings = asyncio.run(_edge_tts("नमस्ते", s.edge_default_voice, tmp))
+            elif provider == "elevenlabs":
+                timings = _elevenlabs_tts("नमस्ते", tmp)
+            else:
+                results[provider] = "unknown provider"
+                continue
+            size = os.path.getsize(tmp) if os.path.exists(tmp) else 0
+            results[provider] = {"ok": size > 0, "bytes": size, "words": len(timings)}
+        except Exception as e:  # noqa: BLE001
+            results[provider] = {"ok": False, "error": f"{type(e).__name__}: {e}"}
+    return results
+
+
 @router.get("/diag")
-def diag(x_keen_key: str | None = Header(default=None)) -> dict:
+def diag(tts: int = 0, x_keen_key: str | None = Header(default=None)) -> dict:
     """Key-gated ops probe: surfaces which providers are configured and runs a
     live Pexels search + download from *inside* the Space, so footage failures
-    (which the render path swallows into a solid-colour fallback) are visible."""
+    (which the render path swallows into a solid-colour fallback) are visible.
+    Pass ?tts=1 to also synth-test each voiceover provider (costs ElevenLabs
+    credits)."""
     _check_auth(x_keen_key)
     import os
 
@@ -78,7 +119,11 @@ def diag(x_keen_key: str | None = Header(default=None)) -> dict:
         "edge_voice": s.edge_default_voice,
         "public_url": s.public_url,
         "space_host": os.environ.get("SPACE_HOST"),
+        "max_renders_per_day": s.max_renders_per_day,
+        "renders_today": renders_today(),
     }
+    if tts:
+        out["tts_probe"] = _probe_tts()
     try:
         vids = _search("lifestyle cinematic 4k", per_page=3)
         out["pexels_search_count"] = len(vids)
