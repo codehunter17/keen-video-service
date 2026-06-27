@@ -84,7 +84,7 @@ def index() -> str:
 def health() -> dict[str, object]:
     return {
         "ok": True,
-        "build": "captions-from-narration",
+        "build": "captions-script-aware-font",
         "tts_provider": settings.tts_provider,
         "pexels_configured": bool(settings.pexels_api_key),
         "video_size": list(settings.video_size),

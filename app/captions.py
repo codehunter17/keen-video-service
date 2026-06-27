@@ -70,14 +70,40 @@ def _discover_devanagari_fonts() -> list[str]:
     return [p for p in found if not (p in seen or seen.add(p))]
 
 
-def _load_font(size: int) -> ImageFont.FreeTypeFont | ImageFont.ImageFont:
-    # Explicit candidates first (honours CAPTION_FONT), then globbed discovery so
-    # captions never silently fall back to a Latin-only font (→ Devanagari tofu).
-    for path in [*_FONT_CANDIDATES, *_discover_devanagari_fonts()]:
+# Latin-capable fonts, tried when the caption text has NO Devanagari. The
+# Devanagari fonts (Noto Sans Devanagari) do NOT include Latin glyphs, so using
+# one for romanized/English captions renders tofu — pick by script instead.
+_LATIN_CANDIDATES = [
+    "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",
+    "C:/Windows/Fonts/arialbd.ttf",
+    "C:/Windows/Fonts/Arialbd.ttf",
+    "/Library/Fonts/Arial Bold.ttf",
+    "/System/Library/Fonts/Supplemental/Arial Bold.ttf",
+]
+
+
+def _has_devanagari(text: str) -> bool:
+    """True if the text contains any Devanagari codepoint (U+0900–U+097F)."""
+    return any("ऀ" <= c <= "ॿ" for c in text)
+
+
+def _load_font(
+    size: int, text: str = ""
+) -> ImageFont.FreeTypeFont | ImageFont.ImageFont:
+    # Pick the candidate order by script: Devanagari text needs a Devanagari font
+    # (Latin fonts → tofu); Latin/English text needs a Latin font (the Devanagari
+    # fonts lack Latin glyphs → tofu). CAPTION_FONT, if set, is honoured first only
+    # when it matches the text's script.
+    env = os.environ.get("CAPTION_FONT", "")
+    if _has_devanagari(text):
+        candidates = [env, *_discover_devanagari_fonts(), *_FONT_CANDIDATES, *_LATIN_CANDIDATES]
+    else:
+        candidates = [*_LATIN_CANDIDATES, env, *_discover_devanagari_fonts()]
+    for path in candidates:
         if path and os.path.exists(path):
             try:
                 font = ImageFont.truetype(path, size)
-                log.info("caption font: %s", path)
+                log.info("caption font: %s (devanagari=%s)", path, _has_devanagari(text))
                 return font
             except Exception:  # noqa: BLE001
                 continue
@@ -133,7 +159,7 @@ def build_caption_clips(
         return []
 
     w, h = video_size
-    font = _load_font(max(28, int(w / 16)))
+    font = _load_font(max(28, int(w / 16)), " ".join(t.word for t in timings))
     clips: list[ImageClip] = []
 
     for line in _group_lines(timings):

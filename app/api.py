@@ -139,7 +139,7 @@ def _caption_selftest() -> dict:
     os.makedirs(s.output_dir, exist_ok=True)
     text = "गर्भावस्था में हरी सब्ज़ियाँ खाएं"
     words = text.split()
-    font = _load_font(max(28, int(s.video_width / 16)))
+    font = _load_font(max(28, int(s.video_width / 16)), text)
     rgba = _render_line(words, 1, s.video_size, font)
     Image.fromarray(rgba).convert("RGB").save(os.path.join(s.output_dir, "caption_selftest.png"))
     return {
