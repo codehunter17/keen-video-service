@@ -59,6 +59,33 @@ def generate_video(
     )
 
 
+@router.get("/debug-text")
+def debug_text(script: str, x_keen_key: str | None = Header(default=None)) -> dict:
+    """Dump the caption text flow for a script: the narration, the provider's
+    word timings, and the final caption words — so tofu can be traced to its
+    source (provider alignment vs narration). Costs one TTS call."""
+    _check_auth(x_keen_key)
+    import os
+
+    from .scene_mapper import map_scenes
+    from .voiceover import generate_voiceover
+
+    scenes = map_scenes(script)
+    narration = " ".join(sc.text for sc in scenes)
+    tmp = os.path.join(get_settings().work_dir, "debug_voice.mp3")
+    os.makedirs(get_settings().work_dir, exist_ok=True)
+    _, timings = generate_voiceover(narration, "hi-IN-SwaraNeural", tmp)
+    prov = [t.word for t in timings]
+    return {
+        "narration": narration,
+        "narration_words": narration.split(),
+        "provider_word_count": len(prov),
+        "provider_words_sample": prov[:12],
+        "provider_first_word_codepoints": [hex(ord(c)) for c in (prov[0] if prov else "")],
+        "matches_narration": prov == narration.split(),
+    }
+
+
 @router.get("/status/{job_id}", response_model=JobInfo)
 def job_status(job_id: str) -> JobInfo:
     job = get_job(job_id)
