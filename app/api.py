@@ -97,8 +97,35 @@ def _probe_tts() -> dict:
     return results
 
 
+def _caption_selftest() -> dict:
+    """Render a known-good Devanagari caption through the real caption pipeline
+    and save it to output/ so the result is viewable. Isolates whether tofu comes
+    from the rendering/font (this will be tofu too) or from upstream LLM text
+    (this renders fine, so the text is the culprit)."""
+    import os
+
+    from PIL import Image
+
+    from .captions import _load_font, _render_line
+
+    s = get_settings()
+    os.makedirs(s.output_dir, exist_ok=True)
+    text = "गर्भावस्था में हरी सब्ज़ियाँ खाएं"
+    words = text.split()
+    font = _load_font(max(28, int(s.video_width / 16)))
+    rgba = _render_line(words, 1, s.video_size, font)
+    Image.fromarray(rgba).convert("RGB").save(os.path.join(s.output_dir, "caption_selftest.png"))
+    return {
+        "text": text,
+        "font_path": getattr(font, "path", None),
+        "url": f"{s.public_url}/files/caption_selftest.png",
+    }
+
+
 @router.get("/diag")
-def diag(tts: int = 0, x_keen_key: str | None = Header(default=None)) -> dict:
+def diag(
+    tts: int = 0, caption: int = 0, x_keen_key: str | None = Header(default=None)
+) -> dict:
     """Key-gated ops probe: surfaces which providers are configured and runs a
     live Pexels search + download from *inside* the Space, so footage failures
     (which the render path swallows into a solid-colour fallback) are visible.
@@ -124,6 +151,11 @@ def diag(tts: int = 0, x_keen_key: str | None = Header(default=None)) -> dict:
     }
     if tts:
         out["tts_probe"] = _probe_tts()
+    if caption:
+        try:
+            out["caption_selftest"] = _caption_selftest()
+        except Exception as e:  # noqa: BLE001
+            out["caption_selftest_error"] = f"{type(e).__name__}: {e}"
 
     # Font diagnostics — explains Devanagari caption tofu (wrong/missing font, or
     # Pillow built without libraqm so complex scripts don't shape).
