@@ -124,6 +124,34 @@ def diag(tts: int = 0, x_keen_key: str | None = Header(default=None)) -> dict:
     }
     if tts:
         out["tts_probe"] = _probe_tts()
+
+    # Font diagnostics — explains Devanagari caption tofu (wrong/missing font, or
+    # Pillow built without libraqm so complex scripts don't shape).
+    try:
+        import glob as _glob
+
+        from PIL import ImageFont, features
+
+        from .captions import _discover_devanagari_fonts
+
+        chosen = None
+        for p in _discover_devanagari_fonts():
+            try:
+                ImageFont.truetype(p, 40)
+                chosen = p
+                break
+            except Exception:  # noqa: BLE001
+                continue
+        out["fonts"] = {
+            "raqm_shaping": features.check("raqm"),  # needed to shape Devanagari
+            "devanagari_found": _discover_devanagari_fonts(),
+            "chosen_devanagari": chosen,
+            "ttf_total": len(_glob.glob("/usr/share/fonts/**/*.ttf", recursive=True)),
+            "caption_font_env": os.environ.get("CAPTION_FONT"),
+        }
+    except Exception as e:  # noqa: BLE001
+        out["fonts_error"] = f"{type(e).__name__}: {e}"
+
     try:
         vids = _search("lifestyle cinematic 4k", per_page=3)
         out["pexels_search_count"] = len(vids)
