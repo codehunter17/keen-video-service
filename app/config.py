@@ -58,8 +58,10 @@ class Settings(BaseSettings):
     # --- Cost guard ---
     # Hard ceiling on renders accepted per UTC day. Each render costs an ElevenLabs
     # call (edge is IP-blocked on HF) + CPU, so this caps spend if the endpoint is
-    # abused or a caller loops. 0 = unlimited (dev). Exceeding it returns HTTP 429.
-    max_renders_per_day: int = 0
+    # abused or a caller loops. Exceeding it returns HTTP 429. Defaults to a safe
+    # non-zero ceiling so a forgotten env var can't mean unbounded spend; set
+    # MAX_RENDERS_PER_DAY=0 explicitly to opt into unlimited (local/dev only).
+    max_renders_per_day: int = 50
 
     @property
     def video_size(self) -> tuple[int, int]:
