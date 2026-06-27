@@ -59,6 +59,11 @@ def _scene_spans(scenes: list[Scene], timings: list[WordTiming], total: float) -
     return spans
 
 
+def _has_devanagari(text: str) -> bool:
+    """True if the text contains any Devanagari codepoint (U+0900–U+097F)."""
+    return any("ऀ" <= c <= "ॿ" for c in text)
+
+
 def _estimate_word_timings(text: str, total: float) -> list[WordTiming]:
     """Evenly distribute `total` seconds across words (weighted by length).
 
@@ -156,6 +161,15 @@ def run_render_job(job_id: str, req: VideoRequest) -> None:
             # so word-by-word captions still render the original script.
             timings = _estimate_word_timings(narration, total)
             log.info("no provider timings; estimated %d over %.1fs", len(timings), total)
+        elif _has_devanagari(narration) and not _has_devanagari(
+            "".join(t.word for t in timings)
+        ):
+            # ElevenLabs with-timestamps returns per-CHARACTER alignment for
+            # Devanagari that reconstructs into mangled word text (caption tofu),
+            # even though the audio is correct. The narration itself is clean, so
+            # rebuild caption words from it (timing becomes approximate, text right).
+            timings = _estimate_word_timings(narration, total)
+            log.info("provider alignment lost Devanagari; estimated from narration")
         spans = _scene_spans(scenes, timings, total)
 
         # 3. Footage per scene (with fallback inside fetch_clip).
