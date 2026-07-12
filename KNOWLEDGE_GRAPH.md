@@ -9,8 +9,8 @@
 > deploy step, a bug with a lesson, a decision), update this file in the same
 > commit.** Update the "Current state & next steps" section every session.
 
-**Last updated:** 2026-07-12 (§10 corrected: NutriMama repositioned as **lifelong
-nutrition care for every female, birth to death** — no longer a pregnancy-only app)
+**Last updated:** 2026-07-12 (added `AGENT_ARCHITECTURE.md` — Keen main-agent +
+per-section personalized sub-agents blueprint; §4 and §8 updated)
 
 ---
 
@@ -104,6 +104,7 @@ to `jobs.update_job` at each phase; `GET /api/v1/status/{job_id}` reads them.
 | `.github/workflows/deploy-hf-space.yml` | Every push to `main` force-pushes to the HF Space (source of truth = GitHub) | Needs repo secret `HF_TOKEN` (HF write token) |
 | `README.md` | **Doubles as HF Space config** — the YAML frontmatter (`sdk: docker`, `app_port: 8000`) is required; don't delete it | |
 | `DEPLOY_HF_SPACE.md` | Full HF deploy runbook (secrets table, Vercel env vars for Keen) | |
+| `AGENT_ARCHITECTURE.md` | Blueprint for the Keen main-agent + per-section personalized sub-agent (model+LLM) architecture (PCOS/PCOD, PMS, life stages); defines the sub-agent contract and registers THIS service as the `reel_maker` tool | Implementation target is the NutriMama repo (`my-app`), not this repo; no code changes here for v1 |
 | `DEPLOY_CLOUDRUN.md` | Alternative Cloud Run guide (not the production path; needs billing) | |
 | `.env.example` | Every env var documented; copy to `.env` locally | |
 | `requirements.txt` | fastapi / uvicorn / pydantic / httpx / **edge-tts 7.2.8** / **moviepy ≥2.1,<3** / imageio-ffmpeg / Pillow / numpy | Version pins encode past breakage — see gotchas |
@@ -192,7 +193,20 @@ cycles were: Hindi/Devanagari caption correctness (fonts + text sourcing),
 ops/diag endpoints, and the daily cost cap (now defaulting to 50). `main` is the
 source of truth; every push auto-deploys to the Space.
 
-**Latest session:** knowledge graph + `CLAUDE.md` bootstrap created and merged
+**Latest session (2026-07-12, branch `claude/personalized-model-llm-pcos-t0ozx6`):**
+Founder directive: personalized model+LLM per section (PCOD/PCOS, PMS, and
+every future section), with **Keen as the main agent that decides first** and
+all models/LLMs as sub-agents under it. Captured as `AGENT_ARCHITECTURE.md`
+(root): 3-layer sub-agent anatomy (LLM+RAG / per-section CatBoost-pattern
+model / personal context package), uniform sub-agent contract + registry,
+orchestration flow, safety gate (informational-only, red-flags, DPDP
+minimisation), phased rollout that respects validation-first (Phase 0 = wrap
+the existing pregnancy pipeline in the contract; PCOS/PMS agents in Phase 1).
+This video service needs **no code changes for v1** — it registers as the
+`reel_maker` tool sub-agent via its existing API. Implementation happens in
+the NutriMama repo (`my-app` `ai/` layer), not here.
+
+**Earlier session:** knowledge graph + `CLAUDE.md` bootstrap created and merged
 (PR #4); parent-project context (NutriMama, §10) folded in. **2026-07-12
 correction (branch `claude/nutrimama-market-strategy-pbh3ee`):** §10 rewritten —
 NutriMama is a *lifelong nutrition app for every female (birth to death, six
