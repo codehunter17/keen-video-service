@@ -9,16 +9,16 @@
 > deploy step, a bug with a lesson, a decision), update this file in the same
 > commit.** Update the "Current state & next steps" section every session.
 
-**Last updated:** 2026-07-12 (branch `claude/project-knowledge-graph-nkgfuh`)
+**Last updated:** 2026-07-12 (added §10 parent-project context: Keen = NutriMama)
 
 ---
 
 ## 1. What this project is (one paragraph)
 
 A headless, asynchronous **video-generation microservice** (FastAPI, Python 3.10+).
-**Keen** — a separate Node backend (the NutriMama app, deployed on Vercel as
-`my-app`, integration code in `my-app/lib/video-service.ts`) — POSTs a
-topic/script; this service renders a Lumen5-style 9:16 (1080×1920) reel with
+**Keen** — a separate Node backend (the **NutriMama** app, deployed on Vercel as
+`my-app`, integration code in `my-app/lib/video-service.ts`; see §10 for what
+NutriMama is and why it matters) — POSTs a topic/script; this service renders a Lumen5-style 9:16 (1080×1920) reel with
 stock footage (Pexels), a Hindi-first voiceover (edge-tts → ElevenLabs
 fallback), and word-by-word highlighted captions, then serves the MP4 at
 `/files/<job_id>.mp4`. Production home: **Hugging Face Docker Space
@@ -191,18 +191,25 @@ cycles were: Hindi/Devanagari caption correctness (fonts + text sourcing),
 ops/diag endpoints, and the daily cost cap (now defaulting to 50). `main` is the
 source of truth; every push auto-deploys to the Space.
 
-**This session:** created this knowledge graph + `CLAUDE.md` bootstrap so new
-sessions start with full context (branch `claude/project-knowledge-graph-nkgfuh`).
+**Latest session:** knowledge graph + `CLAUDE.md` bootstrap created and merged
+(PR #4); parent-project context (NutriMama, §10) folded in.
+
+**Strategic frame for prioritising work (from §10):** the founder's #1 priority
+for the next ~30 days is **validation over code** — get 10 real pregnant women
+or 5 nutritionists using NutriMama. No new features until then. For this
+service, that means: only do work that supports demo readiness, shareability,
+or fixes bugs blocking real usage of reel generation.
 
 **Sensible next steps (pick up here):**
 1. Verify the live Space after the recent caption/cost-guard changes:
-   `GET /health` (check `build` marker), `GET /diag?caption=1` with the key.
+   `GET /health` (check `build` marker), `GET /diag?caption=1` with the key —
+   a broken demo render during validation is the worst-case failure.
 2. Durable outputs: upload finished MP4s to object storage and return that URL
-   (fixes ephemeral-disk loss).
+   (fixes ephemeral-disk loss — matters for *shareability*, e.g. WhatsApp).
 3. Persist the daily render counter (tiny file in `output/` or Redis) so a
    restart can't reset the spend ceiling mid-day.
 4. Job durability / throughput: Celery + Redis swap behind `jobs.py` when volume
-   demands it.
+   demands it (NOT now — premature before validation).
 5. Add a smoke test (script → assert MP4 exists + duration > 0) runnable in CI.
 
 ---
@@ -218,3 +225,62 @@ sessions start with full context (branch `claude/project-knowledge-graph-nkgfuh`
 4. Deploys happen automatically on push to `main` (HF Space). Feature work goes
    on a branch + PR.
 5. **Before you finish: update §8 (and any other touched section) of this file.**
+
+---
+
+## 10. Parent project context — Keen = NutriMama
+
+This service exists to serve **NutriMama**, the founder's (Krishna Kant) app.
+Knowing what NutriMama is tells you *why* this service is Hindi-first, 9:16,
+cost-capped, and hosted free. Handoff captured 2026-07-12.
+
+**What NutriMama is:** AI-powered maternal-health web app. Started as an MCA
+2nd-sem project (HBTU Kanpur), now treated as a startup. Target users:
+pregnant women in India, tier-2/3 cities, **Hinglish-speaking**, underserved by
+premium apps (Mylo, Pregnancy+, iMumz). ← This is why this service's voice,
+captions, and fonts are Hindi/Devanagari/Hinglish-first — that's the product's
+core audience, not an edge case.
+
+**NutriMama tech stack (the "Keen" side):**
+- Frontend: Next.js 15+, TypeScript, Tailwind CSS 4, Framer Motion, TanStack Query
+- Backend: FastAPI (Python) alongside the Node/Next.js app; DB: PostgreSQL + Prisma
+- Auth: Better Auth · Uploads: UploadThing
+- AI: Google Gemini 2.5 Flash + LangChain RAG; ML: CatBoost maternal-risk model
+- Folders: `app/` (routes), `components/`, `lib/` (incl. `lib/video-service.ts`
+  → calls THIS service), `prisma/`, `ai/` (main.py, predictor.py,
+  rag_pipeline.py, train.py)
+
+**NutriMama core features (built):**
+1. **Medical PDF Report Analyzer** — upload blood/medical report, RAG + Gemini
+   extract values, CatBoost predicts maternal risk (Low/Medium/High). The main
+   differentiator vs competitors.
+2. **Week-specific 7-day Nutrition Planner** — Indian-diet focused (khichdi,
+   sahjan, ragi…), pregnancy-week aware, nutrient-synergy logic (iron + Vit C).
+3. **AI Health Concierge** — pregnancy health chatbot.
+
+(An earlier v3.0 — React+Vite PWA / Flask / Groq Llama-3.3-70b — had gamified
+streaks, Hinglish voice meal logging, fetal milestones as Indian food metaphors
+(week 4 = khus khus → week 40 = kaddu), WhatsApp share cards, offline-first
+PWA. Reference only; the Next.js/FastAPI rebuild is current.)
+
+**Go-to-market & strategy (shapes what dev work is worth doing):**
+- Positioning: a **focused tool** — "upload your report, understand your risk,
+  get your weekly desi diet" — NOT a full pregnancy super-app. Can't
+  out-feature funded competitors.
+- Distribution pivot: gynecologists were too hard as first gatekeepers →
+  now targeting **nutritionists, ASHA workers, prenatal instructors** as early
+  adopters/distributors. Community channels: Mylo community, Reddit builder
+  subs, Facebook mom groups.
+- Pricing preference: **₹99 one-time** over subscriptions (Indian market).
+- Known risks: unclear paying customer (B2C mom vs B2B2C nutritionist vs
+  hospital); zero distribution vs funded competitors; **medical liability** of
+  risk predictions (must stay "informational only" or doctor-in-the-loop);
+  ~9-month user lifecycle → churn by design (post-pregnancy/baby-nutrition
+  expansion is the retention answer).
+
+**Current #1 priority (next 30 days, as of 2026-07-12): validation over code.**
+Get 10 real pregnant women or 5 nutritionists actually using the app and giving
+feedback. **No new features until then.** Dev work should only support
+onboarding friction, shareability, demo readiness, or bugs blocking real usage.
+For this video service specifically: reels must render reliably for demos, and
+shareable (durable) MP4 links matter more than throughput or architecture work.
