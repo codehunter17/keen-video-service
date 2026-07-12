@@ -32,6 +32,7 @@ from .jobs import update_job
 from .media_fetcher import fetch_clip
 from .models import JobState, VideoRequest
 from .scene_mapper import Scene, map_scenes
+from .storage import upload_output
 from .voiceover import WordTiming, generate_voiceover
 
 log = logging.getLogger("render_engine")
@@ -200,10 +201,13 @@ def run_render_job(job_id: str, req: VideoRequest) -> None:
             logger=None,
         )
 
-        url = f"{s.public_url}/files/{job_id}.mp4"
+        # 6. Durable URL (optional): the Space disk is ephemeral, so prefer a
+        # link that survives restarts. Soft-fail — local /files/ URL otherwise.
+        update_job(job_id, progress=0.95, message="publishing")
+        url = upload_output(out_path, job_id) or f"{s.public_url}/files/{job_id}.mp4"
         update_job(job_id, state=JobState.DONE, progress=1.0, message="done",
                    output_path=out_path, output_url=url)
-        log.info("job %s done → %s", job_id, out_path)
+        log.info("job %s done → %s (%s)", job_id, out_path, url)
 
     except Exception as e:  # noqa: BLE001
         log.error("job %s failed: %s\n%s", job_id, e, traceback.format_exc())

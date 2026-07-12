@@ -1,0 +1,32 @@
+# Smoke tests on every PR and push to main. Keeps the deploy path honest:
+# deploy-hf-space.yml force-pushes main to production, so this is the only
+# gate between a bad merge and a broken live demo. No network, no TTS credits,
+# no video export — see tests/test_smoke.py.
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      # Same Devanagari guarantee as the Dockerfile (fonts-lohit-deva), so the
+      # script-aware font tests exercise the real production font path.
+      - name: Install fonts
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends fonts-lohit-deva fonts-dejavu-core
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt pytest
+
+      - name: Run smoke tests
+        run: python -m pytest tests/ -q

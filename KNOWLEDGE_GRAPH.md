@@ -9,8 +9,8 @@
 > deploy step, a bug with a lesson, a decision), update this file in the same
 > commit.** Update the "Current state & next steps" section every session.
 
-**Last updated:** 2026-07-12 (beachhead decision recorded: **PCOD/hormonal is the
-first go-to-market wedge**; §8/§10 validation targets and reel priorities updated)
+**Last updated:** 2026-07-12 (validation-readiness build: durable MP4 outputs via
+HF dataset repo, persistent render counter, smoke tests + CI, PCOD reel scripts)
 
 ---
 
@@ -94,11 +94,15 @@ to `jobs.update_job` at each phase; `GET /api/v1/status/{job_id}` reads them.
 | `app/api.py` | HTTP layer. `POST /api/v1/generate-video` (202, auth, cost guard, enqueue), `GET /status/{id}`, `GET /diag` (key-gated ops probe: Pexels live test, font/raqm report, `?tts=1` TTS probe *costs ElevenLabs credits*, `?caption=1` Devanagari self-test), `GET /debug-text` (dumps narration vs provider words) | `_check_auth` = `X-Keen-Key` shared secret; empty `SERVICE_API_KEY` ⇒ open (dev) |
 | `app/config.py` | All settings via pydantic-settings from `.env`/env | `tts_chain_list` (default `["edge","elevenlabs"]`), `public_url` (auto-detects HF `SPACE_HOST`), `max_renders_per_day=50` |
 | `app/models.py` | Schemas | `VideoRequest` (`topic_or_script` 3–8000 chars, `voice_id` default `hi-IN-SwaraNeural`, `bgm_style` default `none`), `JobState`, `JobInfo` |
-| `app/jobs.py` | Thread-safe **in-memory** job store + daily render counter (UTC-bucketed) | `reserve_render_slot(limit)` (limit ≤ 0 = unlimited), `renders_today()`. Deliberately a tiny interface so it can swap to Celery+Redis later |
+| `app/jobs.py` | Thread-safe **in-memory** job store + daily render counter (UTC-bucketed, **mirrored to `work/render_counter.json`** so restarts can't reset the spend ceiling; file I/O soft-fails) | `reserve_render_slot(limit)` (limit ≤ 0 = unlimited), `renders_today()`. Deliberately a tiny interface so it can swap to Celery+Redis later |
 | `app/render_engine.py` | Orchestrates the whole job; the only place that touches MoviePy composition | `run_render_job`, `_scene_spans`, `_estimate_word_timings`, `_fit_to_frame`, `_mix_bgm`. Closes every clip in `finally` |
 | `app/scene_mapper.py` | Sentence split (regex includes `।` for Hindi) → per-scene descriptive Pexels query via Groq→Gemini→keyword-heuristic | `map_scenes`, `Scene(index,text,visual_prompt,word_count)` |
 | `app/voiceover.py` | TTS with word-level timings; providers tried in `TTS_CHAIN` order | `generate_voiceover`, `_edge_tts` (WordBoundary events, 100-ns ticks), `_elevenlabs_tts` (per-char alignment → `_chars_to_words`), `WordTiming` |
 | `app/media_fetcher.py` | Pexels HD fetch: search → `_broaden` (drop trailing words) → generic fallbacks; 429 backoff (3 tries); best-file = smallest that covers target | `fetch_clip` returns `None` on total failure (engine substitutes solid colour) |
+| `app/storage.py` | **Durable output uploads** (optional): finished MP4 → public HF *dataset* repo (`HF_OUTPUT_REPO` + `HF_TOKEN`), `output_url` becomes the resolve URL that survives Space restarts | `upload_output(path, job_id)` returns URL or `None`; soft-fail — never fails a render; repo auto-created (`exist_ok`) |
+| `tests/test_smoke.py` | Smoke tests: Devanagari sentence split, timing estimation, script-aware fonts render visible pixels, auth gate (401), persisted counter survives "restart" | No network/credits/video-export; run `python -m pytest tests/ -q` |
+| `.github/workflows/ci.yml` | Runs the smoke tests on every PR + push to `main` (installs `fonts-lohit-deva` so the Devanagari font test is real) | The only gate before deploy-hf-space.yml ships `main` to production |
+| `docs/PCOD_REEL_SCRIPTS.md` | 5 render-ready Hinglish PCOD reel scripts (the GTM wedge content) + curl recipe + per-reel validation metrics | Content rules: myth-buster hooks, management-not-cure language, desi foods, 1 sentence = 1 scene |
 | `app/captions.py` | PIL-rendered word-by-word captions, no ImageMagick. **Script-aware font selection**: Devanagari text → globbed Devanagari font; Latin text → DejaVu/Arial (Noto Devanagari lacks Latin glyphs!) | `build_caption_clips`, `_load_font(size, text)`, `_has_devanagari`, `_discover_devanagari_fonts` (globs, because distro filenames vary), 4 words/line, 0.6 s pause break, yellow active word |
 | `Dockerfile` | python:3.12-slim + ffmpeg + fonts (dejavu, noto-core, **lohit-deva** as guaranteed Devanagari) + non-root UID 1000 (HF requirement); `CAPTION_FONT` env baked; 1 uvicorn worker | Secrets are NEVER baked — HF injects at runtime |
 | `.github/workflows/deploy-hf-space.yml` | Every push to `main` force-pushes to the HF Space (source of truth = GitHub) | Needs repo secret `HF_TOKEN` (HF write token) |
@@ -121,7 +125,9 @@ to `jobs.update_job` at each phase; `GET /api/v1/status/{job_id}` reads them.
 | `EDGE_DEFAULT_VOICE` | `hi-IN-SwaraNeural` | Used when request `voice_id` empty |
 | `ELEVENLABS_API_KEY` / `_VOICE_ID` / `_MODEL` | `o6qTxWUeRyzRYZyUNDVJ` / `eleven_flash_v2_5` | Paid fallback; model must support Hindi |
 | `GROQ_API_KEY` / `GEMINI_API_KEY` | *(empty)* | Optional; richer visual prompts, else keyword heuristic |
-| `MAX_RENDERS_PER_DAY` | `50` | Cost guard, HTTP 429 past cap; `0` = unlimited (dev only). In-memory, resets on restart — a ceiling, not billing |
+| `MAX_RENDERS_PER_DAY` | `50` | Cost guard, HTTP 429 past cap; `0` = unlimited (dev only). Persisted to `work/render_counter.json` — survives process restarts (not a full Space rebuild) |
+| `HF_OUTPUT_REPO` | *(empty)* | With `HF_TOKEN`: finished MP4s also upload to this **public HF dataset repo**; `output_url` = durable resolve URL (WhatsApp-safe). Empty ⇒ ephemeral `/files/` URL only |
+| `HF_TOKEN` | *(empty)* | HF write token for the upload (add as a Space secret) |
 | `PUBLIC_BASE_URL` | *(auto)* | Empty ⇒ `https://$SPACE_HOST` on HF, else localhost:8000 |
 | `VIDEO_WIDTH×HEIGHT` / `FPS` | 1080×1920 / 30 | 9:16 reel; `PEXELS_ORIENTATION=portrait` should match |
 | `CAPTION_FONT` | *(Docker: Noto Devanagari Bold)* | Honoured only when it matches the text's script |
@@ -175,13 +181,19 @@ future changes:
 - **In-memory jobs + BackgroundTasks**: job status is lost on restart; one
   render at a time. Planned swap: Celery + Redis behind the existing `jobs.py`
   interface — API/engine layers unchanged.
-- **Ephemeral disk on HF**: MP4s vanish on Space restart. Keen polls right after
-  render, so OK short-term; durable option = push outputs to a bucket/S3.
+- **Ephemeral disk on HF**: local MP4s vanish on Space restart. **Mitigated**
+  when `HF_OUTPUT_REPO`+`HF_TOKEN` are set (durable HF dataset URL via
+  `app/storage.py`); unset ⇒ old behaviour. Operator action: set both secrets
+  on the Space.
 - **HF free tier sleeps after ~48h idle**; first call after sleep may exceed
   Keen's 15 s enqueue timeout — hit `/health` to warm it.
-- **No tests, no CI checks** — only the deploy workflow. `/diag` and
-  `/debug-text` are the de-facto verification tools against the live Space.
-- **Render counter resets on restart** (accepted: it's a ceiling, not billing).
+- ~~No tests, no CI checks~~ **smoke tests + CI now exist**
+  (`tests/test_smoke.py`, `.github/workflows/ci.yml`); `/diag` and
+  `/debug-text` remain the live-Space verification tools. No end-to-end render
+  test yet (needs network + credits).
+- ~~Render counter resets on restart~~ **persisted** to
+  `work/render_counter.json` (survives process restarts; a full Space rebuild
+  still resets it — acceptable, it's a ceiling, not billing).
 
 ---
 
@@ -212,17 +224,26 @@ shareability, or fixes bugs blocking real usage of reel generation — and the
 first reels to support are **PCOD/hormonal-topic Hinglish reels** for
 Instagram/WhatsApp.
 
+**Session 2026-07-12 (validation-readiness build):** shipped the three gaps
+that blocked validation — (1) **durable MP4 outputs** (`app/storage.py`,
+optional `HF_OUTPUT_REPO`/`HF_TOKEN` → public HF dataset resolve URL, soft-fail),
+(2) **persistent daily render counter** (`work/render_counter.json`),
+(3) **smoke tests + CI** (`tests/test_smoke.py`, 16 tests, `.github/workflows/ci.yml`).
+Plus `docs/PCOD_REEL_SCRIPTS.md` (5 render-ready Hinglish PCOD reels for the GTM
+wedge). `/health` build marker bumped to `durable-outputs-persistent-counter`.
+
 **Sensible next steps (pick up here):**
-1. Verify the live Space after the recent caption/cost-guard changes:
-   `GET /health` (check `build` marker), `GET /diag?caption=1` with the key —
-   a broken demo render during validation is the worst-case failure.
-2. Durable outputs: upload finished MP4s to object storage and return that URL
-   (fixes ephemeral-disk loss — matters for *shareability*, e.g. WhatsApp).
-3. Persist the daily render counter (tiny file in `output/` or Redis) so a
-   restart can't reset the spend ceiling mid-day.
+1. **Operator (Krishna): set `HF_OUTPUT_REPO` (e.g. `KeenHunter/keen-video-outputs`)
+   and `HF_TOKEN` as secrets on the HF Space** — until then output links are
+   still ephemeral. Then render one PCOD reel from `docs/PCOD_REEL_SCRIPTS.md`
+   and confirm the durable URL opens in an incognito browser/WhatsApp.
+2. Verify the live Space after deploy: `GET /health` (build marker should read
+   `durable-outputs-persistent-counter`), `GET /diag?caption=1` with the key.
+3. Render all 5 PCOD reels, post to Instagram/WhatsApp, measure per
+   `docs/PCOD_REEL_SCRIPTS.md` — this IS the 30-day validation work.
 4. Job durability / throughput: Celery + Redis swap behind `jobs.py` when volume
    demands it (NOT now — premature before validation).
-5. Add a smoke test (script → assert MP4 exists + duration > 0) runnable in CI.
+5. Later: an end-to-end render test (needs network + a Pexels key in CI).
 
 ---
 
