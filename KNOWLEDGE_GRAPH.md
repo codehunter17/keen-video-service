@@ -9,8 +9,8 @@
 > deploy step, a bug with a lesson, a decision), update this file in the same
 > commit.** Update the "Current state & next steps" section every session.
 
-**Last updated:** 2026-07-12 (§10 corrected: NutriMama repositioned as **lifelong
-nutrition care for every female, birth to death** — no longer a pregnancy-only app)
+**Last updated:** 2026-07-12 (beachhead decision recorded: **PCOD/hormonal is the
+first go-to-market wedge**; §8/§10 validation targets and reel priorities updated)
 
 ---
 
@@ -202,10 +202,15 @@ will span all female life stages (teen hormonal health, ageing, etc.), not just
 pregnancy — keep TTS/captions generic, don't bake pregnancy assumptions in.
 
 **Strategic frame for prioritising work (from §10):** the founder's #1 priority
-for the next ~30 days is **validation over code** — get 10 real pregnant women
-or 5 nutritionists using NutriMama. No new features until then. For this
-service, that means: only do work that supports demo readiness, shareability,
-or fixes bugs blocking real usage of reel generation.
+for the next ~30 days is **validation over code**. **Beachhead decision
+(founder, 2026-07-12): PCOD/hormonal-balance is the FIRST go-to-market wedge**
+(pregnancy stays a door in the product, but launch marketing leads with PCOD).
+Validation target accordingly: ~10 real women with PCOD/hormonal concerns or
+~5 dietitians/nutritionists using NutriMama. No new features until then. For
+this service, that means: only do work that supports demo readiness,
+shareability, or fixes bugs blocking real usage of reel generation — and the
+first reels to support are **PCOD/hormonal-topic Hinglish reels** for
+Instagram/WhatsApp.
 
 **Sensible next steps (pick up here):**
 1. Verify the live Space after the recent caption/cost-guard changes:
@@ -291,26 +296,43 @@ streaks, Hinglish voice meal logging, fetal milestones as Indian food metaphors
 PWA. Reference only; the Next.js/FastAPI rebuild is current.)
 
 **Go-to-market & strategy (shapes what dev work is worth doing):**
-- Positioning: a **focused tool** — "upload your report, understand your risk,
-  get your weekly desi diet" — NOT a full pregnancy super-app. Can't
-  out-feature funded competitors.
-- Distribution pivot: gynecologists were too hard as first gatekeepers →
-  now targeting **nutritionists, ASHA workers, prenatal instructors** as early
-  adopters/distributors. Community channels: Mylo community, Reddit builder
-  subs, Facebook mom groups.
+- **Beachhead decision (founder, 2026-07-12): PCOD/hormonal-balance first.**
+  Product keeps motive-based onboarding ("one platform, many doors" — user
+  picks PCOD / pregnancy / etc. at login and sees only that content), but
+  launch **marketing** leads with the PCOD/hormonal wedge: "upload your hormone
+  report, understand it, fix your thali — Hinglish, desi diet, ₹99." Pregnancy
+  is the second door, not the launch message. Rationale: monthly (not 9-month)
+  problem → recurring engagement; 18–30 Instagram-native audience reachable
+  B2C; far lower medical-liability surface than maternal-risk prediction; no
+  strong Hinglish/desi-diet PCOS competitor; earliest lifecycle entry point =
+  longest lifelong LTV.
+- Positioning: a **focused tool** — "upload your report, understand it,
+  get your weekly desi diet" — NOT a super-app. Can't out-feature funded
+  competitors.
+- Distribution: gynecologists were too hard as first gatekeepers → target
+  **dietitians/nutritionists (incl. Instagram PCOS dietitians), ASHA workers,
+  prenatal instructors** as early adopters/distributors. Community channels:
+  Instagram PCOD/PCOS Hinglish content, college campuses (founder is at HBTU
+  Kanpur — the target demographic is on campus), Mylo community, Reddit
+  builder subs, Facebook mom groups.
 - Pricing preference: **₹99 one-time** over subscriptions (Indian market).
 - Known risks: unclear paying customer (B2C user vs B2B2C nutritionist vs
   hospital); zero distribution vs funded competitors; **medical liability** of
   risk predictions (must stay "informational only" or doctor-in-the-loop);
   ~~9-month user lifecycle → churn by design~~ **superseded by the lifelong
   repositioning above** — the new risk is the inverse: scope breadth ("every
-  female, birth to death") vs the need for one sharp beachhead; pregnancy
-  (report → risk → desi diet) stays the go-to-market wedge, other life stages
-  are expansion/retention, not simultaneous launch targets.
+  female, birth to death") vs the need for one sharp beachhead; **resolved
+  2026-07-12: the beachhead is PCOD/hormonal** (see above), other doors are
+  expansion/retention, not simultaneous launch targets. PCOD-specific caveats:
+  the CatBoost model is maternal-risk-only — do NOT promise "risk prediction"
+  for PCOD (start as report *explainer* + diet plan); and position as
+  management/support, never "cure PCOD by diet".
 
 **Current #1 priority (next 30 days, as of 2026-07-12): validation over code.**
-Get 10 real pregnant women or 5 nutritionists actually using the app and giving
-feedback. **No new features until then.** Dev work should only support
-onboarding friction, shareability, demo readiness, or bugs blocking real usage.
-For this video service specifically: reels must render reliably for demos, and
-shareable (durable) MP4 links matter more than throughput or architecture work.
+Get ~10 real women with PCOD/hormonal concerns or ~5 dietitians/nutritionists
+actually using the app and giving feedback. **No new features until then.**
+Dev work should only support onboarding friction, shareability, demo
+readiness, or bugs blocking real usage. For this video service specifically:
+reels must render reliably for demos (first up: PCOD/hormonal Hinglish reels),
+and shareable (durable) MP4 links matter more than throughput or architecture
+work.
