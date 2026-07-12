@@ -9,7 +9,8 @@
 > deploy step, a bug with a lesson, a decision), update this file in the same
 > commit.** Update the "Current state & next steps" section every session.
 
-**Last updated:** 2026-07-12 (added §10 parent-project context: Keen = NutriMama)
+**Last updated:** 2026-07-12 (§10 corrected: NutriMama repositioned as **lifelong
+nutrition care for every female, birth to death** — no longer a pregnancy-only app)
 
 ---
 
@@ -192,7 +193,13 @@ ops/diag endpoints, and the daily cost cap (now defaulting to 50). `main` is the
 source of truth; every push auto-deploys to the Space.
 
 **Latest session:** knowledge graph + `CLAUDE.md` bootstrap created and merged
-(PR #4); parent-project context (NutriMama, §10) folded in.
+(PR #4); parent-project context (NutriMama, §10) folded in. **2026-07-12
+correction (branch `claude/nutrimama-market-strategy-pbh3ee`):** §10 rewritten —
+NutriMama is a *lifelong nutrition app for every female (birth to death, six
+life stages, nutri-mama.in, DPDP-compliant)*, not pregnancy-only; the 9-month
+churn risk is superseded. For this video service that means reel topics/scripts
+will span all female life stages (teen hormonal health, ageing, etc.), not just
+pregnancy — keep TTS/captions generic, don't bake pregnancy assumptions in.
 
 **Strategic frame for prioritising work (from §10):** the founder's #1 priority
 for the next ~30 days is **validation over code** — get 10 real pregnant women
@@ -234,12 +241,32 @@ This service exists to serve **NutriMama**, the founder's (Krishna Kant) app.
 Knowing what NutriMama is tells you *why* this service is Hindi-first, 9:16,
 cost-capped, and hosted free. Handoff captured 2026-07-12.
 
-**What NutriMama is:** AI-powered maternal-health web app. Started as an MCA
-2nd-sem project (HBTU Kanpur), now treated as a startup. Target users:
-pregnant women in India, tier-2/3 cities, **Hinglish-speaking**, underserved by
-premium apps (Mylo, Pregnancy+, iMumz). ← This is why this service's voice,
-captions, and fonts are Hindi/Devanagari/Hinglish-first — that's the product's
-core audience, not an edge case.
+**What NutriMama is (REPOSITIONED 2026-07-12 — founder correction):**
+AI-powered **lifelong nutrition-care app for every female — "From Birth to
+Death"**, NOT a pregnancy-only/maternal-only app (earlier §10 text said
+"maternal-health app"; the founder corrected this with the official brand
+poster). Tagline: *"Complete Nutrition Care — Lifelong nutrition care for every
+female. Every Stage. Every Need. Every Day."* Started as an MCA 2nd-sem project
+(HBTU Kanpur), now treated as a startup. Domain: **nutri-mama.in**.
+
+**Six life stages served:** Birth & Early Childhood → Childhood & Growth →
+Teenage & Adolescence → Young Adult & Active Life → Adult Life & Wellness →
+Mature Life & Healthy Ageing. Pregnancy/maternal features remain the strongest
+wedge/entry point, but the product scope is the full female lifecycle
+(this dissolves the old "9-month lifecycle → churn by design" risk: expansion
+across stages IS the retention model).
+
+**Feature pillars (per brand poster):** Personalized Nutrition Plans (per life
+stage), Healthy Food Recommendations (Indian foods), Cycle & Hormonal Balance,
+Track Your Health, Wellness & Lifestyle, Expert Guidance / Food & Nutrition
+Education. Positioning badges: Made for India, **DPDP-compliant**, Hindi +
+English support, works offline, no credit card needed, simple & easy to use.
+
+Target users: Indian females across all ages, tier-2/3 cities,
+**Hinglish-speaking**, underserved by premium apps (Mylo, Pregnancy+, iMumz —
+who are also pregnancy-window-bound, which NutriMama now is not). ← This is why
+this service's voice, captions, and fonts are Hindi/Devanagari/Hinglish-first —
+that's the product's core audience, not an edge case.
 
 **NutriMama tech stack (the "Keen" side):**
 - Frontend: Next.js 15+, TypeScript, Tailwind CSS 4, Framer Motion, TanStack Query
@@ -272,11 +299,14 @@ PWA. Reference only; the Next.js/FastAPI rebuild is current.)
   adopters/distributors. Community channels: Mylo community, Reddit builder
   subs, Facebook mom groups.
 - Pricing preference: **₹99 one-time** over subscriptions (Indian market).
-- Known risks: unclear paying customer (B2C mom vs B2B2C nutritionist vs
+- Known risks: unclear paying customer (B2C user vs B2B2C nutritionist vs
   hospital); zero distribution vs funded competitors; **medical liability** of
   risk predictions (must stay "informational only" or doctor-in-the-loop);
-  ~9-month user lifecycle → churn by design (post-pregnancy/baby-nutrition
-  expansion is the retention answer).
+  ~~9-month user lifecycle → churn by design~~ **superseded by the lifelong
+  repositioning above** — the new risk is the inverse: scope breadth ("every
+  female, birth to death") vs the need for one sharp beachhead; pregnancy
+  (report → risk → desi diet) stays the go-to-market wedge, other life stages
+  are expansion/retention, not simultaneous launch targets.
 
 **Current #1 priority (next 30 days, as of 2026-07-12): validation over code.**
 Get 10 real pregnant women or 5 nutritionists actually using the app and giving

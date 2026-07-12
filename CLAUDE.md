@@ -11,8 +11,10 @@ unnecessary.
 Async FastAPI microservice that turns a script into a 9:16 captioned reel:
 scenes → Hindi-first TTS (edge-tts → ElevenLabs fallback) → Pexels footage →
 PIL word-by-word captions → FFmpeg/MoviePy MP4. Called by the separate **Keen**
-Node backend — Keen = **NutriMama**, an AI maternal-health app for
-Hinglish-speaking Indian mothers (full context: KNOWLEDGE_GRAPH.md §10) — via
+Node backend — Keen = **NutriMama**, an AI lifelong-nutrition app for every
+female across all life stages ("birth to death"), Hinglish-first, for Indian
+users, with pregnancy as its strongest wedge (full context:
+KNOWLEDGE_GRAPH.md §10) — via
 `POST /api/v1/generate-video` + `X-Keen-Key`. Production =
 Hugging Face Docker Space `KeenHunter/keen-video-service`, auto-deployed from
 GitHub `main` by `.github/workflows/deploy-hf-space.yml`.
