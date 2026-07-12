@@ -50,6 +50,14 @@ class Settings(BaseSettings):
     output_dir: str = "output"
     work_dir: str = "work"
 
+    # --- Durable output storage (optional) ---
+    # HF Space disk is ephemeral: /files/ links die on restart. When both are
+    # set, finished MP4s are ALSO uploaded to this public HF *dataset* repo and
+    # output_url becomes the durable resolve URL (WhatsApp-shareable forever).
+    # Unset/failed upload => soft-fallback to the local /files/ URL.
+    hf_output_repo: str = ""  # e.g. "KeenHunter/keen-video-outputs"
+    hf_token: str = ""        # write-capable token (env HF_TOKEN)
+
     # --- Networking / auth ---
     request_timeout: float = 30.0
     service_api_key: str = ""  # X-Keen-Key shared secret; empty = open (dev)
