@@ -205,6 +205,12 @@ the existing pregnancy pipeline in the contract; PCOS/PMS agents in Phase 1).
 This video service needs **no code changes for v1** — it registers as the
 `reel_maker` tool sub-agent via its existing API. Implementation happens in
 the NutriMama repo (`my-app` `ai/` layer), not here.
+**Follow-up directive (same day):** three LLM provider keys exist — Gemini,
+Groq, Anthropic — and Keen routes per request by complexity (§2a of the doc):
+Groq `llama-3.3-70b` for fast/simple, Gemini 2.5 Flash for standard section
+answers, Anthropic `claude-opus-4-8` for complex/safety-critical reasoning,
+with an escalation ladder and daily cost cap modeled on this repo's
+scene-mapper and TTS fallback chains.
 
 **Earlier session:** knowledge graph + `CLAUDE.md` bootstrap created and merged
 (PR #4); parent-project context (NutriMama, §10) folded in. **2026-07-12

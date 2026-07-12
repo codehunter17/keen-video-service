@@ -37,7 +37,7 @@ graph TD
     U["User (app / chat / WhatsApp share)"] --> K
 
     subgraph KEEN["Keen Main Agent (my-app FastAPI ai/ layer)"]
-        K["Router + Planner<br/>(Gemini 2.5 Flash, function-calling)"]
+        K["Router + Planner<br/>(complexity router §2a:<br/>Groq → Gemini → Anthropic)"]
         P["Personal Context Builder<br/>(profile + logs + report values)"]
         S["Synthesizer + Safety Gate<br/>(one voice, disclaimers, red-flag escalation)"]
         K --> P --> K
@@ -63,13 +63,56 @@ section is a fill-in-the-blanks copy.
 
 | Layer | What it is | PCOS example |
 |---|---|---|
-| **LLM layer** | Gemini 2.5 Flash with a **section system prompt** (persona, scope, Hinglish tone, hard safety rules) + **LangChain RAG** over a section knowledge base (curated Indian-context docs, ICMR/FOGSI-style guidance, desi food tables) | "You are NutriMama's PCOS nutrition specialist… answer in Hinglish… never diagnose…" + RAG over PCOS-nutrition corpus |
+| **LLM layer** | An LLM chosen **per request by the complexity router (§2a)** — Groq, Gemini, or Anthropic — with a **section system prompt** (persona, scope, Hinglish tone, hard safety rules) + **LangChain RAG** over a section knowledge base (curated Indian-context docs, ICMR/FOGSI-style guidance, desi food tables) | "You are NutriMama's PCOS nutrition specialist… answer in Hinglish… never diagnose…" + RAG over PCOS-nutrition corpus |
 | **Model layer** | A small classical ML model per section (the **CatBoost pattern** already proven by the maternal-risk model) that turns the user's structured data into scores/labels the LLM cannot compute reliably | PCOS symptom-risk scorer: cycle irregularity, BMI, reported symptoms, report values (insulin, testosterone, TSH) → Low/Medium/High + top contributing factors |
 | **Personalization layer** | The context package Keen injects per request (§4): profile, life stage, cycle/symptom logs, extracted report values, diet preferences, past plan adherence | 24-year-old, vegetarian, tier-2 city, irregular cycles logged 3 months, fasting insulin from uploaded report |
 
 The LLM makes it conversational and Indian-food-practical; the model makes it
 *personal and consistent* (same inputs ⇒ same risk, auditable); Keen makes it
 safe and coherent.
+
+---
+
+## 2a. LLM routing by complexity (founder directive, 2026-07-12)
+
+Three provider API keys are available — **Gemini, Groq, and Anthropic** — and
+Keen picks the LLM **per request, by task complexity**. The choice is made
+once by Keen's router (control stays with Keen); sub-agents receive the chosen
+client, they never pick a provider themselves.
+
+| Tier | Provider & model | Use for | Why |
+|---|---|---|---|
+| **Fast** | Groq — `llama-3.3-70b-versatile` | Intent/section classification, query rewriting, simple factual lookups, keyword extraction (e.g. Pexels visual prompts — this video service already uses exactly this) | Near-zero cost, lowest latency; wrong answers are cheap to correct because Keen re-routes on low confidence |
+| **Standard** | Gemini — `gemini-2.5-flash` | Default for section sub-agent answers: RAG-grounded PCOS/PMS/pregnancy responses, meal-plan generation, reel-script writing, Hinglish synthesis | Cheap, strong multilingual/Hinglish, already the app's LangChain default |
+| **Complex** | Anthropic — `claude-opus-4-8` ($5 in / $25 out per MTok) | High-stakes reasoning: multi-section synthesis (PCOS + pregnancy + report values interacting), medical-report edge cases, red-flag adjudication in the safety gate, plan conflicts (allergy vs deficiency vs preference) | Strongest reasoning for medical-adjacent judgment calls, where a wrong answer costs trust or safety, not just tokens |
+
+**How the router decides (rules first, cheap and auditable):**
+
+1. **Red flags or safety-gate adjudication** → Complex (always — never economize
+   on the safety path).
+2. **≥ 2 sections implicated, or report values + symptoms must be reasoned
+   about together** → Complex.
+3. **Single-section question with RAG context available** → Standard.
+4. **Classification / extraction / rewriting, ≤ ~1 short paragraph out** → Fast.
+5. **Escalation ladder**: if a lower tier returns low confidence, contradicts
+   the section's ML-model output, or fails validation, Keen re-runs the task
+   one tier up (Fast → Standard → Complex). This mirrors the proven
+   Groq → Gemini → heuristic fallback in this repo's `scene_mapper.py` and the
+   edge-tts → ElevenLabs TTS chain: ordered chains with graceful degradation.
+6. **Provider outage** = same ladder sideways: Standard work fails over
+   Gemini → Groq (degraded) or Gemini → Anthropic (premium), per a
+   `LLM_CHAIN`-style config, so no single provider outage takes NutriMama down.
+
+**Cost guard (same philosophy as this service's 50-renders/day cap):** a daily
+budget for the Complex tier — e.g. max N Anthropic calls/day, in-memory or
+Redis counter — past which Complex-tier work degrades to Gemini with a logged
+warning, except the safety path, which is exempt from the cap.
+
+**Config:** `GEMINI_API_KEY`, `GROQ_API_KEY`, `ANTHROPIC_API_KEY` env vars in
+the NutriMama backend (never in this repo — this service keeps only its
+existing keys). Anthropic calls use the official `anthropic` Python SDK with
+adaptive thinking left at defaults; keep `max_tokens` modest for chat-length
+answers and stream anything long.
 
 ---
 
