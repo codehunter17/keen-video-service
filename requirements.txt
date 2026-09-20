@@ -11,6 +11,9 @@ python-dotenv==1.0.1
 # --- HTTP (Pexels, LLM, ElevenLabs) ---
 httpx==0.28.1
 
+# --- Durable output storage (optional at runtime; used when HF_OUTPUT_REPO is set) ---
+huggingface_hub>=0.28
+
 # --- Voiceover ---
 edge-tts==7.2.8          # free neural TTS + word-boundary timings (7.0.0 → 403s; 7.2.x fixes the Sec-MS-GEC token)
 
